@@ -59,7 +59,6 @@ optimized_upload/
 
 # Cache files
 cache.json
-alt_text_map.json
 
 # Environment variables
 .env

@@ -17,6 +17,21 @@ IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.heic'}
 SCOPES = ["https://www.googleapis.com/auth/drive"]
 
 def get_drive_service():
+    headless_client_id = os.environ.get("GDRIVE_CLIENT_ID")
+    headless_client_secret = os.environ.get("GDRIVE_CLIENT_SECRET")
+    headless_refresh_token = os.environ.get("GDRIVE_REFRESH_TOKEN")
+    if headless_client_id and headless_client_secret and headless_refresh_token:
+        creds = Credentials(
+            token=None,
+            refresh_token=headless_refresh_token,
+            token_uri="https://oauth2.googleapis.com/token",
+            client_id=headless_client_id,
+            client_secret=headless_client_secret,
+            scopes=SCOPES,
+        )
+        creds.refresh(Request())
+        return build("drive", "v3", credentials=creds)
+
     creds = None
     if os.path.exists("token.json"):
         creds = Credentials.from_authorized_user_file("token.json", SCOPES)
@@ -186,18 +201,18 @@ def download_images(drive_folder_id, local_temp_dir, extensions=None, fail_log_p
     return downloaded, failed
 
 def delete_images(drive_folder_id, image_ids):
-    """Delete images from Google Drive folder by image_ids."""
+    """Move images to Trash in Google Drive by image_ids (recoverable, not a permanent delete)."""
     service = get_drive_service()
     deleted_count = 0
     not_found_count = 0
     error_count = 0
-    
-    print(f"Attempting to delete {len(image_ids)} files...")
-    
+
+    print(f"Attempting to trash {len(image_ids)} files...")
+
     for file_id in image_ids:
         try:
-            service.files().delete(fileId=file_id).execute()
-            print(f"Deleted file ID: {file_id}")
+            service.files().update(fileId=file_id, body={'trashed': True}).execute()
+            print(f"Trashed file ID: {file_id}")
             deleted_count += 1
         except HttpError as e:
             if e.resp.status == 404:
