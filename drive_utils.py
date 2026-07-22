@@ -27,7 +27,8 @@ def get_drive_service():
             flow = InstalledAppFlow.from_client_secrets_file(
                 "credentials.json", SCOPES
             )
-            creds = flow.run_local_server(port=0)
+            # Use port 8080 to match common OAuth redirect URI patterns
+            creds = flow.run_local_server(port=8080)
         with open("token.json", "w") as token:
             token.write(creds.to_json())
     return build("drive", "v3", credentials=creds)
@@ -120,12 +121,40 @@ def download_images(drive_folder_id, local_temp_dir, extensions=None, fail_log_p
             for file in response.get('files', []):
                 name = file['name']
                 ext = os.path.splitext(name)[1]
-                print(f"[DEBUG] Checking file: {name}, extracted ext: '{ext}' (lower: '{ext.lower()}')")
-                if ext.lower() not in {e.lower() for e in extensions}:
+                mime_type = file.get('mimeType', '')
+                print(f"[DEBUG] Checking file: {name}, extracted ext: '{ext}' (lower: '{ext.lower()}'), mimeType: {mime_type}")
+                
+                # Check if it's an image by extension OR MIME type
+                is_image_by_ext = ext.lower() in {e.lower() for e in extensions}
+                is_image_by_mime = mime_type.startswith('image/') and mime_type in [
+                    'image/jpeg', 'image/jpg', 'image/png', 'image/bmp', 'image/tiff', 'image/heic', 'image/heif'
+                ]
+                
+                if not (is_image_by_ext or is_image_by_mime):
+                    print(f"[DEBUG] Skipping {name}: not an image by extension or MIME type")
                     continue
                 file_id = file['id']
                 # Save with unique filename: name_fileid.ext
                 name_no_ext, ext = os.path.splitext(name)
+                
+                # If no extension but it's an image by MIME type, add appropriate extension
+                if not ext and mime_type.startswith('image/'):
+                    if mime_type in ['image/jpeg', 'image/jpg']:
+                        ext = '.jpg'
+                    elif mime_type == 'image/png':
+                        ext = '.png'
+                    elif mime_type == 'image/bmp':
+                        ext = '.bmp'
+                    elif mime_type == 'image/tiff':
+                        ext = '.tiff'
+                    elif mime_type == 'image/heic':
+                        ext = '.heic'
+                    elif mime_type == 'image/heif':
+                        ext = '.heif'
+                    else:
+                        ext = '.jpg'  # Default to jpg for other image types
+                    print(f"[DEBUG] No extension found, adding {ext} based on MIME type {mime_type}")
+                
                 unique_name = f"{name_no_ext}_{file_id}{ext}"
                 local_path = os.path.join(local_temp_dir, unique_name)
                 print(f"[DEBUG] Attempting to download: {name} (id: {file_id}) -> {local_path}")

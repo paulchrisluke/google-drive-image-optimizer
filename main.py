@@ -47,7 +47,7 @@ def main():
     parser.add_argument('--resume', action='store_true', help='Resume from last cache')
     parser.add_argument('--upload-optimized', action='store_true', help='Upload optimized images to Drive')
     parser.add_argument('--cleanup', action='store_true', help='Prompt to delete originals after optimization')
-    parser.add_argument('--ext', default='jpg,jpeg,png,bmp,tiff,heic', help='Comma-separated list of extensions to process')
+    parser.add_argument('--ext', default='jpg,jpeg,png,bmp,tiff,heic,heif', help='Comma-separated list of extensions to process')
     parser.add_argument('--overwrite', action='store_true', help='Overwrite existing optimized files')
     parser.add_argument('--skip-existing', action='store_true', help='Skip files that are already optimized')
     parser.add_argument('--fail-log', default='failures.log', help='Path to log failed conversions')

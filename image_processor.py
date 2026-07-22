@@ -3,7 +3,7 @@ Image resizing, compression, and conversion utilities.
 """
 
 import os
-from PIL import Image
+from PIL import Image, ImageOps
 import io
 import json
 import pillow_heif
@@ -19,6 +19,7 @@ DEFAULT_MAX_SIZE_KB = 300
 def resize_image(input_path, output_path, target_size):
     """Resize image to target_size and save to output_path."""
     with Image.open(input_path) as img:
+        img = ImageOps.exif_transpose(img)
         img = img.convert('RGB')
         img = img.resize(target_size, Image.LANCZOS)
         img.save(output_path)
@@ -27,6 +28,7 @@ def resize_image(input_path, output_path, target_size):
 def compress_and_convert_to_webp(input_path, output_path, max_size_kb=DEFAULT_MAX_SIZE_KB, quality=80):
     """Compress and convert image to .webp under max_size_kb."""
     with Image.open(input_path) as img:
+        img = ImageOps.exif_transpose(img)
         img = img.convert('RGB')
         for q in range(quality, 10, -5):
             buffer = io.BytesIO()
@@ -89,6 +91,7 @@ def process_image(input_path, output_dir, overwrite=False, skip_existing=False, 
             print(f"Skipping (exists, no overwrite): {output_path}")
             return output_path, 'skipped'
     with Image.open(input_path) as img:
+        img = ImageOps.exif_transpose(img)
         w, h = img.size
         if h > w:
             target_size = PORTRAIT_SIZE
