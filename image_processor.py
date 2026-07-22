@@ -3,7 +3,7 @@ Image resizing, compression, and conversion utilities.
 """
 
 import os
-from PIL import Image, ImageOps
+from PIL import Image, ImageOps, ImageFilter
 import io
 import json
 import pillow_heif
@@ -14,6 +14,30 @@ pillow_heif.register_heif_opener()
 PORTRAIT_SIZE = (900, 1200)
 LANDSCAPE_SIZE = (1200, 900)
 DEFAULT_MAX_SIZE_KB = 300
+BLUR_RADIUS = 40
+
+
+def fit_with_blurred_background(img, target_size):
+    """Fit img inside target_size without distortion, filling any leftover
+    space with a blurred, zoomed-in copy of the same image (Stories-style)."""
+    target_w, target_h = target_size
+    src_w, src_h = img.size
+
+    # Background: scale to cover the target box, then crop and blur.
+    cover_scale = max(target_w / src_w, target_h / src_h)
+    bg = img.resize((max(1, round(src_w * cover_scale)), max(1, round(src_h * cover_scale))), Image.LANCZOS)
+    bg_x = (bg.width - target_w) // 2
+    bg_y = (bg.height - target_h) // 2
+    bg = bg.crop((bg_x, bg_y, bg_x + target_w, bg_y + target_h))
+    bg = bg.filter(ImageFilter.GaussianBlur(BLUR_RADIUS))
+
+    # Foreground: scale to fit entirely inside the target box, no cropping.
+    contain_scale = min(target_w / src_w, target_h / src_h)
+    fg = img.resize((max(1, round(src_w * contain_scale)), max(1, round(src_h * contain_scale))), Image.LANCZOS)
+    fg_x = (target_w - fg.width) // 2
+    fg_y = (target_h - fg.height) // 2
+    bg.paste(fg, (fg_x, fg_y))
+    return bg
 
 
 def resize_image(input_path, output_path, target_size):
@@ -21,7 +45,7 @@ def resize_image(input_path, output_path, target_size):
     with Image.open(input_path) as img:
         img = ImageOps.exif_transpose(img)
         img = img.convert('RGB')
-        img = img.resize(target_size, Image.LANCZOS)
+        img = fit_with_blurred_background(img, target_size)
         img.save(output_path)
 
 
@@ -97,7 +121,7 @@ def process_image(input_path, output_dir, overwrite=False, skip_existing=False, 
             target_size = PORTRAIT_SIZE
         else:
             target_size = LANDSCAPE_SIZE
-        resized = img.resize(target_size, Image.LANCZOS)
+        resized = fit_with_blurred_background(img.convert('RGB'), target_size)
         for q in range(80, 10, -5):
             buffer = io.BytesIO()
             resized.save(buffer, format='WEBP', quality=q)
