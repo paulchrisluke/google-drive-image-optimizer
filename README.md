@@ -1,128 +1,167 @@
-# Google Drive Image Optimizer
+<div align="center">
 
-A Python tool that automatically downloads images from Google Drive, optimizes them to WebP format with SEO-friendly filenames, and uploads them back to the same folder while optionally deleting the originals.
+# 🖼️ Google Drive Image Optimizer
 
-## Features
+**Automatically convert your Google Drive photos to WebP — faster pages, better SEO, no server needed.**
 
-- **Automatic Download**: Downloads images from any Google Drive folder
-- **WebP Conversion**: Converts images to optimized WebP format
-- **SEO Optimization**: Creates SEO-friendly filenames with folder-based prefixes
-- **Smart Resizing**: Automatically resizes images to optimal dimensions (1200x900 for landscape, 900x1200 for portrait)
-- **Compression**: Compresses images to under 300KB while maintaining quality
-- **Batch Processing**: Handles multiple images efficiently
-- **Duplicate Prevention**: Skips files that already exist in Drive
-- **Automatic Cleanup**: Optionally deletes original images after optimization
-- **Error Handling**: Comprehensive error logging and retry mechanisms
+[![Python](https://img.shields.io/badge/python-3.8+-3776AB.svg?logo=python&logoColor=white)](https://python.org)
+[![License: MIT](https://img.shields.io/badge/license-MIT-22c55e.svg)](LICENSE)
+[![GitHub Actions](https://img.shields.io/badge/powered%20by-GitHub%20Actions-2088FF.svg?logo=github-actions&logoColor=white)](https://github.com/features/actions)
+[![WebP](https://img.shields.io/badge/output-WebP-FF6B35.svg)](https://developers.google.com/speed/webp)
 
-## Installation
+</div>
 
-1. Clone the repository:
+---
+
+Large JPEGs kill your [PageSpeed score](https://pagespeed.web.dev). WebP images are **30–80% smaller** at the same visual quality — meaning faster load times, higher search rankings, and happier visitors.
+
+This tool automates the whole process. Point it at a Google Drive folder, and it will download every image, resize it, convert it to WebP with SEO-friendly filenames, upload the result back to Drive, and clean up the originals — all for free, using GitHub Actions.
+
+**Built for:** bloggers, photographers, small business owners, and anyone who stores photos in Google Drive and wants them web-ready without a manual workflow.
+
+---
+
+## ✨ What It Does
+
+| Step | Action |
+|---|---|
+| 📥 Download | Pulls every image from your Google Drive folder |
+| ✂️ Resize | Scales to SEO-optimal dimensions (1200×900 landscape / 900×1200 portrait) |
+| 🔄 Convert | Converts to WebP and compresses to under 300 KB |
+| 🏷️ Rename | Adds SEO-friendly, folder-based prefixes to every filename |
+| 📤 Upload | Puts optimized images back into the same Drive folder |
+| 🗑️ Clean up | Moves originals to Trash (recoverable) and removes temp files |
+
+Supports: **JPG, PNG, BMP, TIFF, HEIC/HEIF**
+
+---
+
+## 🚀 Quick Start
+
+### 1. Use this template
+
+Click **"Use this template"** at the top of this page to create your own copy of the repo.
+
+### 2. One-time local setup (~5 min)
+
 ```bash
-git clone https://github.com/pcl-labs/convert-images-google-drive-to-seo-optimized-webp.git
-cd convert-images-google-drive-to-seo-optimized-webp
-```
-
-2. Install dependencies:
-```bash
+git clone https://github.com/YOUR_USERNAME/google-drive-image-optimizer
+cd google-drive-image-optimizer
 pip install -r requirements.txt
+python setup_secrets.py
 ```
 
-3. Set up Google Drive API:
-   - Go to [Google Cloud Console](https://console.cloud.google.com/)
-   - Create a new project or select existing one
-   - Enable the Google Drive API
-   - Create credentials (OAuth 2.0 Client ID)
-   - Download the credentials and save as `credentials.json` in the project root
+The setup script will:
+- Walk you through creating a free Google Cloud OAuth credential (with direct links)
+- Open a browser to authorize your Google account
+- Print your **3 GitHub Secrets** ready to copy-paste
 
-## Usage
+### 3. Add your 3 GitHub Secrets
 
-### Basic Usage
+In your repo, go to **Settings → Secrets and variables → Actions → New repository secret** and add:
+
+| Secret Name | Where to get it |
+|---|---|
+| `GDRIVE_CLIENT_ID` | Printed by `setup_secrets.py` |
+| `GDRIVE_CLIENT_SECRET` | Printed by `setup_secrets.py` |
+| `GDRIVE_REFRESH_TOKEN` | Printed by `setup_secrets.py` |
+
+### 4. Run the optimizer
+
+Go to **Actions → Optimize Drive Folder → Run workflow**
+
+Paste your Google Drive folder link (e.g. `https://drive.google.com/drive/folders/abc123`) and click **Run workflow**. Done.
+
+---
+
+## 📁 Output
+
+Images are renamed with a SEO-friendly prefix based on your Drive folder name:
+
+```
+Before:  IMG_4821.JPG  (4.2 MB)
+After:   sooke-marina-IMG_4821.webp  (187 KB)
+```
+
+Alt text is automatically extracted from filenames and saved to `alt_text_map.json` in your repo, so you can reference it in your CMS or website.
+
+---
+
+## 🔧 Advanced Usage
+
+Run locally with full control over the process:
 
 ```bash
-python main.py --drive-folder "YOUR_GOOGLE_DRIVE_FOLDER_ID_OR_LINK"
+# Basic — download, optimize, upload, clean up
+python main.py --drive-folder "YOUR_FOLDER_LINK_OR_ID"
+
+# Preview what would happen without making changes
+python main.py --drive-folder "YOUR_FOLDER_ID" --dry-run
+
+# Only process specific file types
+python main.py --drive-folder "YOUR_FOLDER_ID" --ext "jpg,png,heic"
+
+# Overwrite existing optimized files
+python main.py --drive-folder "YOUR_FOLDER_ID" --overwrite
+
+# Re-authenticate with a different Google account
+python main.py --reauth
 ```
 
-### Advanced Options
+---
 
-```bash
-python main.py \
-  --drive-folder "https://drive.google.com/drive/folders/YOUR_FOLDER_ID" \
-  --ext "jpg,jpeg,png,bmp,tiff,heic" \
-  --overwrite \
-  --cleanup
-```
-
-### Command Line Arguments
-
-- `--drive-folder`: Google Drive folder ID or share link (required)
-- `--ext`: Comma-separated list of image extensions to process (default: jpg,jpeg,png,bmp,tiff,heic)
-- `--overwrite`: Overwrite existing optimized files
-- `--skip-existing`: Skip files that are already optimized
-- `--cleanup`: Automatically delete original images after optimization
-- `--max-retries`: Number of retry attempts for failed operations (default: 3)
-- `--versioned`: Save versioned filenames if conflicts occur
-- `--dry-run`: Preview actions without making changes
-- `--reauth`: Force new Google account authentication
-
-## How It Works
-
-1. **Authentication**: Uses OAuth 2.0 to authenticate with Google Drive API
-2. **Download**: Downloads all images from the specified Drive folder to a temporary directory
-3. **Processing**: For each image:
-   - Resizes to optimal dimensions
-   - Converts to WebP format
-   - Compresses to under 300KB
-   - Creates SEO-friendly filename with folder prefix
-4. **Upload**: Uploads optimized images back to the same Drive folder
-5. **Cleanup**: Optionally deletes original images and removes temporary files
-
-## File Structure
+## 🏗️ Project Structure
 
 ```
-├── main.py              # Main CLI entry point
-├── drive_utils.py       # Google Drive API utilities
-├── image_processor.py   # Image processing and optimization
-├── requirements.txt     # Python dependencies
-├── .gitignore          # Git ignore rules
-└── README.md           # This file
+google-drive-image-optimizer/
+├── main.py               # CLI entry point
+├── drive_utils.py        # Google Drive API (download, upload, delete)
+├── image_processor.py    # Resize, compress, WebP conversion
+├── setup_secrets.py      # One-time setup wizard → prints GitHub Secrets
+├── create_credentials.py # Helper to build credentials.json
+├── requirements.txt      # Python dependencies
+└── .github/
+    └── workflows/
+        └── optimize.yml  # GitHub Actions workflow
 ```
 
-## Output
+---
 
-- Optimized images are saved as WebP files with SEO-friendly names
-- Original filenames are preserved in the alt text mapping
-- Progress and error logs are displayed in the console
-- Failed operations are logged to `failures.log`
+## ❓ FAQ
 
-## Security
+**Does it delete my original photos permanently?**
+No. Originals are moved to Google Drive Trash, where they stay for 30 days before auto-deletion. You can restore them any time.
 
-- OAuth credentials (`credentials.json`) and tokens (`token.json`) are excluded from version control
-- All sensitive files are listed in `.gitignore`
-- No API keys or secrets are stored in the repository
+**Will it re-process images that are already optimized?**
+No. It skips files that already exist in Drive, so re-running on the same folder is safe.
 
-## Requirements
+**Does it work with shared Drive folders?**
+Yes, as long as the authorized Google account has edit access to the folder.
 
-- Python 3.7+
-- Google Drive API access
-- Internet connection for Drive API calls
+**What if an image fails to process?**
+Errors are caught per-file, logged to `failures.log`, and the rest of the batch continues.
 
-## Dependencies
+**Is this free?**
+Yes. GitHub Actions gives you 2,000 free minutes/month on public repos and 500 on private. The Google Drive API is free within standard quota limits.
 
-- `google-api-python-client`: Google Drive API client
-- `google-auth-httplib2`: Google authentication
-- `google-auth-oauthlib`: OAuth 2.0 authentication
-- `Pillow`: Image processing
-- `pillow-heif`: HEIC image support
-- `tqdm`: Progress bars
+---
 
-## License
+## 📋 Requirements
 
-This project is open source and available under the MIT License.
+- A free GitHub account
+- A Google account with Drive
+- Python 3.8+ (for one-time local setup only — the Action runs in the cloud)
 
-## Contributing
+---
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+## 📄 License
 
-## Support
+MIT — free for personal and commercial use. See [LICENSE](LICENSE).
 
-For issues and questions, please open an issue on GitHub. 
+---
+
+<div align="center">
+
+Made with ☕ and too many large JPEGs.
+
+</div>

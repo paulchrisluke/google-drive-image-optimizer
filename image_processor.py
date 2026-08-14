@@ -114,6 +114,10 @@ def process_image(input_path, output_dir, overwrite=False, skip_existing=False, 
         elif not overwrite:
             print(f"Skipping (exists, no overwrite): {output_path}")
             return output_path, 'skipped'
+    # Guard: skip files that are too small to be a valid image (e.g. iCloud HEIC stubs)
+    file_size = os.path.getsize(input_path)
+    if file_size < 1024:
+        raise ValueError(f"File too small ({file_size} bytes) — likely a corrupted or incomplete download: {input_path}")
     with Image.open(input_path) as img:
         img = ImageOps.exif_transpose(img)
         w, h = img.size

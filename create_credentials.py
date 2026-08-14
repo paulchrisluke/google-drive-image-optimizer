@@ -13,7 +13,7 @@ def create_credentials(client_id=None, client_secret=None, project_id=None, over
     # Try to get from environment variables if not provided
     client_id = client_id or os.getenv('GOOGLE_CLIENT_ID')
     client_secret = client_secret or os.getenv('GOOGLE_CLIENT_SECRET')
-    project_id = project_id or os.getenv('GOOGLE_PROJECT_ID', 'legacy-image-optimizer')
+    project_id = project_id or os.getenv('GOOGLE_PROJECT_ID', 'google-drive-image-optimizer')
     
     # If still missing, prompt interactively
     if not client_id:
@@ -38,12 +38,12 @@ def create_credentials(client_id=None, client_secret=None, project_id=None, over
         return False
     
     # Only prompt for project_id if we're in interactive mode and using default
-    if interactive and project_id == 'legacy-image-optimizer':
-        project_id_input = input("Enter your Project ID (or press Enter to use 'legacy-image-optimizer'): ").strip()
+    if interactive and project_id == 'google-drive-image-optimizer':
+        project_id_input = input("Enter your Project ID (or press Enter to use 'google-drive-image-optimizer'): ").strip()
         if project_id_input:
             project_id = project_id_input
         else:
-            project_id = "legacy-image-optimizer"
+            project_id = "google-drive-image-optimizer"
     
     credentials = {
         "installed": {
@@ -101,7 +101,7 @@ Examples:
     )
     parser.add_argument('--client-id', help='Google OAuth Client ID')
     parser.add_argument('--client-secret', help='Google OAuth Client Secret')
-    parser.add_argument('--project-id', help='Google Cloud Project ID (default: legacy-image-optimizer)')
+    parser.add_argument('--project-id', help='Google Cloud Project ID (default: google-drive-image-optimizer)')
     parser.add_argument('--overwrite', action='store_true', help='Overwrite existing credentials.json without prompting')
     
     args = parser.parse_args()
