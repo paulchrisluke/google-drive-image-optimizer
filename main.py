@@ -119,18 +119,23 @@ def main():
     skipped = []
     for fname in downloaded:
         input_path = os.path.join(temp_dir, fname)
-        out_path, status = process_image(
-            input_path,
-            output_dir,
-            overwrite=False,
-            skip_existing=True,
-            versioned=False,
-            seo_prefix=folder_name_clean
-        )
-        if status == 'skipped':
-            skipped.append(fname)
-        else:
-            optimized.append(fname)
+        try:
+            out_path, status = process_image(
+                input_path,
+                output_dir,
+                overwrite=False,
+                skip_existing=True,
+                versioned=False,
+                seo_prefix=folder_name_clean
+            )
+            if status == 'skipped':
+                skipped.append(fname)
+            else:
+                optimized.append(fname)
+        except Exception as e:
+            print(f"Error processing {fname}: {e}")
+            with open('failures.log', 'a') as f:
+                f.write(f"Failed to process {fname}: {e}\n")
     print(f"\nOptimization complete. {len(optimized)} images optimized, {len(skipped)} skipped (already optimized). Optimized images are in '{output_dir}'.\n")
 
     # Automatically upload optimized images to the same Drive folder
