@@ -68,7 +68,10 @@ def list_files_in_folder(drive_folder_id):
     return filenames
 
 def upload_images(local_folder, drive_folder_id, extensions=None, fail_log_path=None, max_retries=3):
-    """Upload images from local_folder to Google Drive folder, skipping files that already exist."""
+    """Upload images from local_folder to Google Drive folder, skipping files that already exist.
+
+    Returns (uploaded, failed, skipped) lists of filenames; skipped files already exist in Drive.
+    """
     if extensions is None:
         extensions = IMAGE_EXTENSIONS
     else:
@@ -76,6 +79,7 @@ def upload_images(local_folder, drive_folder_id, extensions=None, fail_log_path=
     service = get_drive_service()
     uploaded = []
     failed = []
+    skipped = []
     existing_files = list_files_in_folder(drive_folder_id)
     for fname in os.listdir(local_folder):
         ext = os.path.splitext(fname)[1].lower()
@@ -83,6 +87,7 @@ def upload_images(local_folder, drive_folder_id, extensions=None, fail_log_path=
             continue
         if fname in existing_files:
             print(f"[SKIP] Already exists in Drive: {fname}")
+            skipped.append(fname)
             continue
         file_path = os.path.join(local_folder, fname)
         for attempt in range(max_retries):
@@ -108,10 +113,13 @@ def upload_images(local_folder, drive_folder_id, extensions=None, fail_log_path=
         with open(fail_log_path, 'a') as flog:
             for fname in failed:
                 flog.write(fname + '\n')
-    return uploaded, failed
+    return uploaded, failed, skipped
 
 def download_images(drive_folder_id, local_temp_dir, extensions=None, fail_log_path=None, max_retries=3):
-    """Download images from Google Drive folder to local_temp_dir. Save with unique filenames if needed."""
+    """Download images from Google Drive folder to local_temp_dir. Save with unique filenames if needed.
+
+    Returns (downloaded, failed, file_ids), where file_ids maps each downloaded filename to its Drive file ID.
+    """
     if extensions is None:
         extensions = IMAGE_EXTENSIONS
     else:
@@ -121,6 +129,7 @@ def download_images(drive_folder_id, local_temp_dir, extensions=None, fail_log_p
     page_token = None
     downloaded = []
     failed = []
+    file_ids = {}
     print(f"[DEBUG] Extensions being used for filtering: {extensions}")
     while True:
         try:
@@ -182,6 +191,7 @@ def download_images(drive_folder_id, local_temp_dir, extensions=None, fail_log_p
                             while not done:
                                 status, done = downloader.next_chunk()
                         downloaded.append(unique_name)
+                        file_ids[unique_name] = file_id
                         print(f"Downloaded: {unique_name}")
                         break
                     except Exception as e:
@@ -198,10 +208,13 @@ def download_images(drive_folder_id, local_temp_dir, extensions=None, fail_log_p
         with open(fail_log_path, 'a') as flog:
             for fname in failed:
                 flog.write(fname + '\n')
-    return downloaded, failed
+    return downloaded, failed, file_ids
 
 def delete_images(drive_folder_id, image_ids):
-    """Move images to Trash in Google Drive by image_ids (recoverable, not a permanent delete)."""
+    """Move images to Trash in Google Drive by image_ids (recoverable, not a permanent delete).
+
+    Returns the number of files that could not be trashed (excluding ones already gone).
+    """
     service = get_drive_service()
     deleted_count = 0
     not_found_count = 0
@@ -230,6 +243,7 @@ def delete_images(drive_folder_id, image_ids):
     print(f"  Successfully deleted: {deleted_count}")
     print(f"  Not found (already deleted): {not_found_count}")
     print(f"  Errors: {error_count}")
+    return error_count
 
 def get_folder_name(folder_id):
     """Fetch the name of a Google Drive folder by its ID."""

@@ -18,16 +18,6 @@ def extract_folder_id(folder_input):
         return folder_input
     raise ValueError("Invalid Google Drive folder link or ID.")
 
-def is_valid_drive_file_id(file_id):
-    """Check if a string looks like a valid Google Drive file ID."""
-    # Google Drive file IDs are typically 25-44 characters long and contain alphanumeric characters and hyphens
-    if not file_id or len(file_id) < 20:
-        return False
-    # Should only contain alphanumeric characters, hyphens, and underscores
-    if not re.match(r"^[a-zA-Z0-9_-]+$", file_id):
-        return False
-    return True
-
 def load_cache(cache_path):
     if os.path.exists(cache_path):
         with open(cache_path, 'r') as f:
@@ -101,7 +91,7 @@ def main():
     extensions = [e.strip().lower() for e in args.ext.split(',')] if args.ext else ['jpg', 'jpeg', 'png', 'bmp', 'tiff']
     print(f"Downloading images from Drive folder {folder_id} to {temp_dir}...")
     from drive_utils import download_images
-    downloaded, failed = download_images(
+    downloaded, failed, file_ids = download_images(
         folder_id,
         temp_dir,
         extensions=extensions,
@@ -117,6 +107,8 @@ def main():
     os.makedirs(output_dir, exist_ok=True)
     optimized = []
     skipped = []
+    process_errors = []
+    output_names = {}  # downloaded filename -> optimized .webp filename
     for fname in downloaded:
         input_path = os.path.join(temp_dir, fname)
         try:
@@ -128,11 +120,13 @@ def main():
                 versioned=False,
                 seo_prefix=folder_name_clean
             )
+            output_names[fname] = os.path.basename(out_path)
             if status == 'skipped':
                 skipped.append(fname)
             else:
                 optimized.append(fname)
         except Exception as e:
+            process_errors.append(fname)
             print(f"Error processing {fname}: {e}")
             with open('failures.log', 'a') as f:
                 f.write(f"Failed to process {fname}: {e}\n")
@@ -141,46 +135,40 @@ def main():
     # Automatically upload optimized images to the same Drive folder
     print(f"Uploading optimized images from {output_dir} to Drive folder {folder_id}...")
     from drive_utils import upload_images, delete_images
-    uploaded, failed_uploads = upload_images(output_dir, folder_id, extensions=['.webp'], fail_log_path='failures.log', max_retries=3)
-    print(f"\nUpload complete. {len(uploaded)} uploaded, {len(failed_uploads)} failed, {len(os.listdir(output_dir)) - len(uploaded)} skipped (already in Drive).\n")
+    uploaded, failed_uploads, skipped_uploads = upload_images(output_dir, folder_id, extensions=['.webp'], fail_log_path='failures.log', max_retries=3)
+    print(f"\nUpload complete. {len(uploaded)} uploaded, {len(failed_uploads)} failed, {len(skipped_uploads)} skipped (already in Drive).\n")
 
-    # Automatically delete original images from Google Drive
-    # Extract original file IDs from downloaded filenames
+    # Trash an original only once its optimized version is safely in Drive
+    in_drive = set(uploaded) | set(skipped_uploads)
     original_file_ids = []
-    print(f"\nExtracting file IDs from downloaded filenames...")
+    kept_originals = []
     for fname in downloaded:
-        # Filenames are like name_fileid.ext
-        name_part = os.path.splitext(fname)[0]
-        parts = name_part.rsplit('_', 1)
-        if len(parts) == 2:
-            file_id = parts[1]
-            if is_valid_drive_file_id(file_id):
-                original_file_ids.append(file_id)
-                print(f"  Extracted file ID: {file_id} from {fname}")
-            else:
-                print(f"  Warning: Invalid file ID '{file_id}' extracted from {fname}")
+        if output_names.get(fname) in in_drive:
+            original_file_ids.append(file_ids[fname])
         else:
-            print(f"  Warning: Could not extract file ID from {fname}")
-    
-    print(f"Found {len(original_file_ids)} valid file IDs for deletion")
-    
+            kept_originals.append(fname)
+    if kept_originals:
+        print(f"Keeping {len(kept_originals)} originals because their optimized version is not in Drive: {kept_originals}")
+
+    delete_errors = 0
     if original_file_ids:
         print("Automatically deleting original images from Google Drive...")
-        delete_images(folder_id, original_file_ids)
-        print("Original images deleted.")
+        delete_errors = delete_images(folder_id, original_file_ids)
     else:
-        print("No original file IDs found for cleanup.")
-    
-    # Calculate summary before cleanup
-    skipped_upload_count = len(os.listdir(output_dir)) - len(uploaded) if os.path.exists(output_dir) else 0
-    
+        print("No original images to clean up.")
+
     print("\nSummary:")
     print(f"  Downloaded: {len(downloaded)}")
+    print(f"  Failed downloads: {len(failed)}")
     print(f"  Optimized: {len(optimized)}")
     print(f"  Skipped (already optimized): {len(skipped)}")
+    print(f"  Failed to optimize: {len(process_errors)}")
     print(f"  Uploaded: {len(uploaded)}")
-    print(f"  Skipped upload (already in Drive): {skipped_upload_count}")
+    print(f"  Skipped upload (already in Drive): {len(skipped_uploads)}")
     print(f"  Failed uploads: {len(failed_uploads)}")
+    print(f"  Originals kept: {len(kept_originals)}")
+    print(f"  Failed to trash originals: {delete_errors}")
+    had_errors = bool(failed or process_errors or failed_uploads or delete_errors)
     
     # Clean up local directories
     print("\nCleaning up local directories...")
@@ -197,6 +185,9 @@ def main():
         print(f"Removed optimized directory: {output_dir}")
     
     print("Cleanup complete.")
+    if had_errors:
+        print("\nFinished with errors — see the summary above.")
+        sys.exit(1)
     print("\nThank you for using Google Drive Image Optimizer!")
     sys.exit(0)
 
